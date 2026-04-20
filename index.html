@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SIZEME — المخزون</title>
+  <meta name="description" content="نظام إدارة مخزون الملابس" />
+  <meta name="theme-color" content="#141414" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="https://placehold.co/192x192/141414/B8762A?text=S" />
+
+  <!-- Google Fonts — Arabic + Display -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            cream:   '#FAF7F2',
+            ink:     '#141414',
+            cognac:  '#B8762A',
+            'cognac-light': '#D4993F',
+            muted:   '#8A8275',
+            'card-bg': '#FFFFFF',
+            'border-soft': '#E8E2D9',
+          },
+          fontFamily: {
+            display: ['"Playfair Display"', 'Georgia', 'serif'],
+            body:    ['"Cairo"', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+
+    :root {
+      --cream:   #FAF7F2;
+      --ink:     #141414;
+      --cognac:  #B8762A;
+      --muted:   #8A8275;
+      --border:  #E8E2D9;
+    }
+
+    html { scroll-behavior: smooth; }
+    body {
+      background-color: var(--cream);
+      color: var(--ink);
+      font-family: 'Cairo', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      direction: rtl;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 1000;
+      opacity: 0.4;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .fade-up  { animation: fadeUp 0.6s ease both; }
+    .delay-1  { animation-delay: 0.1s; }
+    .delay-2  { animation-delay: 0.2s; }
+    .delay-3  { animation-delay: 0.3s; }
+    .delay-4  { animation-delay: 0.45s; }
+
+    #search-input {
+      font-family: 'Cairo', sans-serif;
+      font-weight: 600;
+      caret-color: var(--cognac);
+      transition: border-color 0.2s, box-shadow 0.2s;
+      text-align: right;
+    }
+    #search-input:focus {
+      outline: none;
+      border-color: var(--cognac);
+      box-shadow: 0 0 0 3px rgba(184,118,42,0.15);
+    }
+    #search-input::placeholder { font-weight: 400; }
+
+    .filter-chip {
+      cursor: pointer;
+      border: 1.5px solid var(--border);
+      background: white;
+      color: var(--muted);
+      font-family: 'Cairo', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 6px 14px;
+      transition: all 0.18s ease;
+      user-select: none;
+    }
+    .filter-chip:hover { border-color: var(--cognac); color: var(--ink); }
+    .filter-chip.active { background: var(--ink); border-color: var(--ink); color: #FAF7F2; }
+    .filter-chip.active.brand-chip { background: var(--cognac); border-color: var(--cognac); color: white; }
+
+    .color-swatch {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      border: 2.5px solid transparent;
+      cursor: pointer;
+      transition: all 0.18s;
+    }
+    .color-swatch:hover { transform: scale(1.15); }
+    .color-swatch.active { border-color: var(--ink); box-shadow: 0 0 0 2px var(--cream), 0 0 0 4px var(--ink); }
+    .color-swatch.active.gold-ring { border-color: var(--cognac); box-shadow: 0 0 0 2px var(--cream), 0 0 0 4px var(--cognac); }
+
+    .product-card {
+      background: white;
+      border: 1px solid var(--border);
+      transition: transform 0.22s ease, box-shadow 0.22s ease;
+      overflow: hidden;
+    }
+    .product-card:hover { transform: translateY(-4px); box-shadow: 0 16px 40px rgba(20,20,20,0.1); }
+
+    #exact-match {
+      border: 2px solid var(--cognac);
+      background: linear-gradient(135deg, rgba(184,118,42,0.04) 0%, white 100%);
+      animation: fadeUp 0.4s ease both;
+    }
+
+    .size-input {
+      font-family: 'Cairo', sans-serif;
+      font-weight: 700;
+      font-size: 2rem;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid var(--border);
+      width: 100%;
+      padding: 8px 0;
+      color: var(--ink);
+      text-align: center;
+      transition: border-color 0.2s;
+    }
+    .size-input:focus { outline: none; border-color: var(--cognac); }
+    .size-input::placeholder { color: var(--border); font-weight: 400; font-size: 1.5rem; }
+
+    .size-badge {
+      font-family: 'Playfair Display', serif;
+      font-weight: 900;
+      font-size: 5rem;
+      line-height: 1;
+      color: var(--cognac);
+      letter-spacing: -2px;
+    }
+
+    #offline-banner { transition: all 0.3s ease; }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--cream); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    .card-enter { animation: fadeUp 0.4s ease both; }
+
+    @keyframes pulse-slow { 0%,100%{opacity:.5} 50%{opacity:1} }
+    .pulse-slow { animation: pulse-slow 2s ease-in-out infinite; }
+
+    .fitta-bar { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+    .fitta-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--cognac), #E8A940);
+      border-radius: 3px;
+      transition: width 0.6s cubic-bezier(0.34,1.56,0.64,1);
+    }
+
+    #modal-overlay { backdrop-filter: blur(4px); background: rgba(20,20,20,0.6); }
+  </style>
+</head>
+
+<body class="font-body">
+
+  <!-- بانر عدم الاتصال -->
+  <div id="offline-banner" class="hidden fixed top-0 left-0 right-0 z-50 bg-ink text-cream text-center py-2 text-xs font-bold">
+    ⚡ وضع عدم الاتصال — بيانات مخزّنة محلياً
+  </div>
+
+  <!-- الهيدر -->
+  <header class="sticky top-0 z-40 bg-cream/95 backdrop-blur-sm border-b border-border-soft">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <span class="font-display text-xl font-black tracking-tight text-ink">SIZEME</span>
+        <span class="hidden sm:block text-muted text-xs font-medium">نظام المخزون</span>
+      </div>
+      <div class="flex items-center gap-4">
+        <div id="net-status" class="flex items-center gap-1.5 text-xs font-semibold">
+          <span id="net-dot" class="w-2 h-2 rounded-full bg-green-500 transition-colors"></span>
+          <span id="net-label" class="text-muted">متصل</span>
+        </div>
+        <button onclick="toggleFitta()"
+          class="text-xs font-bold bg-ink text-cream px-3 py-1.5 hover:bg-cognac transition-colors duration-200 whitespace-nowrap">
+          دليل القياس
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- قسم البحث الرئيسي -->
+  <section class="bg-ink text-cream py-10 sm:py-14 fade-up">
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 text-center">
+      <p class="text-cognac text-xs font-bold mb-2 delay-1 fade-up">البحث عن منتج</p>
+      <h1 class="font-display text-3xl sm:text-5xl font-black leading-tight mb-6 delay-2 fade-up">
+        ابحث عن أي منتج<br/>في لحظة.
+      </h1>
+      <div class="relative delay-3 fade-up">
+        <div class="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
+          <svg class="w-5 h-5 text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/>
+          </svg>
+        </div>
+        <input id="search-input" type="text"
+          placeholder="أدخل كود المنتج — مثال: BOS-1001"
+          autocomplete="off" autocorrect="off" spellcheck="false"
+          class="w-full bg-white/10 text-cream border border-white/20 rounded-none pr-12 pl-12 py-4 text-sm sm:text-base"
+        />
+        <button id="clear-btn" onclick="clearSearch()"
+          class="hidden absolute inset-y-0 left-0 flex items-center pl-4 text-muted hover:text-cream transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <p id="result-count" class="mt-3 text-xs text-muted font-medium delay-4 fade-up">
+        <span id="total-count">0</span> منتج في الكتالوج
+      </p>
+    </div>
+  </section>
+
+  <!-- تطابق دقيق -->
+  <div id="exact-match-wrapper" class="hidden max-w-7xl mx-auto px-4 sm:px-6 mt-6">
+    <p class="text-xs font-bold text-cognac mb-3">⚡ تم العثور على تطابق دقيق</p>
+    <div id="exact-match" class="p-4 sm:p-6 flex gap-5 items-start">
+      <img id="em-img" src="" alt="" class="w-20 h-24 sm:w-28 sm:h-36 object-cover flex-shrink-0 bg-cream" />
+      <div class="flex-1 min-w-0 text-right">
+        <div class="flex flex-wrap items-center gap-2 mb-1">
+          <span id="em-brand" class="text-cognac text-xs font-black uppercase"></span>
+          <span id="em-code" class="bg-ink text-cream text-xs font-mono px-2 py-0.5"></span>
+        </div>
+        <h2 id="em-name" class="font-display text-xl sm:text-2xl font-bold leading-tight mb-2"></h2>
+        <p id="em-desc" class="text-muted text-sm leading-relaxed mb-3"></p>
+        <div class="flex flex-wrap gap-4 text-sm">
+          <span class="text-ink font-bold">$<span id="em-price"></span></span>
+          <span id="em-stock-badge" class="text-xs font-bold px-2 py-0.5"></span>
+        </div>
+        <div id="em-sizes" class="flex flex-wrap gap-1 mt-3"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- دليل القياس -->
+  
+  <section id="fitta-section" class="hidden max-w-7xl mx-auto px-4 sm:px-6 mt-8">
+    <div class="border border-border-soft bg-white p-6 sm:p-10">
+      <div class="flex items-center justify-between mb-8">
+        <div>
+          <h2 class="font-display text-2xl sm:text-3xl font-black">دليل القياس</h2>
+          <p class="text-muted text-sm mt-1">حاسبة المقاسات للأحجام الكبيرة والطويلة</p>
+        </div>
+        <button onclick="toggleFitta()" class="text-muted hover:text-ink transition-colors">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <div class="grid sm:grid-cols-2 gap-8">
+        <div>
+          <div class="mb-8">
+            <label class="block text-xs font-black text-cognac mb-3">الوزن (كجم)</label>
+            <input id="fitta-weight" type="number" min="40" max="250" placeholder="115"
+              class="size-input" oninput="calculateSize()" />
+          </div>
+          <div class="mb-8">
+            <label class="block text-xs font-black text-cognac mb-3">الطول (سم)</label>
+            <input id="fitta-height" type="number" min="140" max="220" placeholder="185"
+              class="size-input" oninput="calculateSize()" />
+          </div>
+          <p class="text-muted text-xs leading-relaxed text-right">
+            يُعطى الأولوية للوزن في تحديد المقاس، ثم يُعدَّل حسب الطول.
+            يُطبَّق مقياس الطول (+T) عند تجاوز 188 سم.
+          </p>
+        </div>
+        <div class="flex flex-col items-center justify-center border border-border-soft p-8 text-center bg-cream">
+          <p id="fitta-label" class="text-xs font-black text-muted mb-4">أدخل المقاسات</p>
+          <div id="fitta-size" class="size-badge">—</div>
+          <p id="fitta-desc" class="text-muted text-sm mt-4 leading-relaxed max-w-xs"></p>
+          <div id="fitta-bar-wrap" class="hidden w-full mt-6">
+            <div class="flex justify-between text-xs text-muted mb-1 font-medium">
+              <span>دقة التوصية</span>
+              <span id="fitta-confidence-pct"></span>
+            </div>
+            <div class="fitta-bar"><div id="fitta-bar-fill" class="fitta-bar-fill" style="width:0%"></div></div>
+          </div>
+          <div id="fitta-chart" class="hidden w-full mt-6 text-right">
+            <p class="text-xs font-black text-muted mb-3">جدول المقاسات الكامل</p>
+            <table class="w-full text-xs border-collapse">
+              <thead>
+                <tr class="border-b border-border-soft">
+                  <th class="py-1.5 font-bold text-right text-ink">المقاس</th>
+                  <th class="py-1.5 font-bold text-center text-ink">الوزن (كجم)</th>
+                  <th class="py-1.5 font-bold text-left text-ink">الطول (سم)</th>
+                </tr>
+              </thead>
+              <tbody id="size-chart-body" class="text-muted"></tbody>
+            </table>
+          </div>
+          <button onclick="document.getElementById('fitta-chart').classList.toggle('hidden')"
+            class="mt-4 text-xs font-bold text-cognac hover:text-ink transition-colors">
+            عرض / إخفاء الجدول الكامل ↕
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- الفلاتر -->
+  <section class="max-w-7xl mx-auto px-4 sm:px-6 mt-8">
+    <div class="flex flex-col sm:flex-row gap-6 sm:items-start sm:justify-between">
+      <div>
+        <p class="text-xs font-black text-muted mb-2">الماركة</p>
+        <div id="brand-filters" class="flex flex-wrap gap-2"></div>
+      </div>
+      <div>
+        <p class="text-xs font-black text-muted mb-2">اللون</p>
+        <div id="color-filters" class="flex flex-wrap gap-2 items-center"></div>
+      </div>
+      <div class="flex items-start pt-5">
+        <button onclick="clearAllFilters()" id="clear-filters-btn"
+          class="hidden text-xs font-bold text-muted hover:text-cognac transition-colors border-b border-muted hover:border-cognac">
+          مسح الكل
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- شبكة المنتجات -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 mt-6 pb-20">
+    <div id="filter-summary" class="hidden mb-4 flex flex-wrap gap-2 items-center">
+      <span class="text-xs text-muted font-medium">فلترة بواسطة:</span>
+      <div id="filter-tags" class="flex flex-wrap gap-2"></div>
+    </div>
+    <div id="product-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6"></div>
+    <div id="empty-state" class="hidden text-center py-24">
+      <p class="font-display text-4xl font-black text-border-soft pulse-slow">لا توجد نتائج</p>
+      <p class="text-muted text-sm mt-3">جرّب كوداً أو ماركةً أو لوناً مختلفاً</p>
+      <button onclick="clearSearch();clearAllFilters()"
+        class="mt-6 text-xs font-bold text-cognac hover:text-ink transition-colors">
+        إعادة تعيين جميع الفلاتر
+        الفلاتر
+      </button>
+    </div>
+  </main>
+
+  <!-- مودال المنتج -->
+  <div id="modal-overlay" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
+    <div id="modal" class="bg-white w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      <div class="sticky top-0 bg-white border-b border-border-soft px-5 py-4 flex items-center justify-between z-10">
+        <span id="modal-code" class="text-xs font-mono font-bold text-muted"></span>
+        <button onclick="closeModal()" class="text-muted hover:text-ink transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <img id="modal-img" src="" alt="" class="w-full h-56 sm:h-72 object-cover bg-cream" />
+      <div class="p-5 text-right">
+        <div class="flex items-start justify-between gap-3 mb-3">
+          <div>
+            <p id="modal-brand" class="text-cognac text-xs font-black uppercase mb-1"></p>
+            <h3 id="modal-name" class="font-display text-2xl font-bold leading-tight"></h3>
+          </div>
+          <span id="modal-price" class="text-xl font-black text-ink whitespace-nowrap"></span>
+        </div>
+        <p id="modal-desc" class="text-muted text-sm leading-relaxed mb-5"></p>
+        <p class="text-xs font-black text-muted mb-2">المقاسات المتاحة</p>
+        <div id="modal-sizes" class="flex flex-wrap gap-2 mb-5"></div>
+        <p class="text-xs font-black text-muted mb-2">الألوان</p>
+        <div id="modal-colors" class="flex gap-2 mb-5"></div>
+        <div class="flex items-center justify-between pt-4 border-t border-border-soft">
+          <div id="modal-stock" class="text-sm font-semibold"></div>
+          <div id="modal-category" class="text-xs font-bold text-muted"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- الفوتر -->
+  <footer class="border-t border-border-soft bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+      <span class="font-display text-lg font-black text-ink">SIZEME</span>
+      <p class="text-xs text-muted">نظام مخزون يعمل بدون إنترنت · PWA</p>
+      <p class="text-xs text-muted" id="last-sync-label"></p>
+    </div>
+  </footer>
+
+  <script>
+  // ── قاعدة البيانات النموذجية ──────────────────────────────────────────────
+  const PRODUCTS = [
+    { id:1,  code:"BOS-1001", name:"Hugo Boss بولو كلاسيك",          brand:"BOSS",    color:"كحلي",      colors:["كحلي","أبيض"],                sizes:["M","L","XL","2XL","3XL"],           price:89.99,  stock:18, category:"بولو",    image:"https://picsum.photos/seed/boss1/400/500",  desc:"بولو بيكيه فاخر مع شعار مطرز. قصة عادية، قطن مريح." },
+    { id:2,  code:"BOS-1002", name:"Hugo Boss شينو سليم",             brand:"BOSS",    color:"بيج",       colors:["بيج","أسود فحمي"],            sizes:["30","32","34","36","38"],            price:119.00, stock:6,  category:"بنطلون", image:"https://picsum.photos/seed/boss2/400/500",  desc:"شينو سليم من قطن مطاطي. خطوط نظيفة وعصرية." },
+    { id:3,  code:"BOS-1003", name:"Hugo Boss جاكيت بافر",            brand:"BOSS",    color:"أسود فحمي", colors:["أسود فحمي","كحلي"],           sizes:["M","L","XL","2XL","3XL","4XL"],     price:249.00, stock:4,  category:"جاكيت",  image:"https://picsum.photos/seed/boss3/400/500",  desc:"جاكيت مبطن بتصميم ضد الماء. قابل للطي." },
+    { id:4,  code:"LAC-2001", name:"Lacoste بولو L12.12",             brand:"LACOSTE", color:"أبيض",      colors:["أبيض","زيتي","بردو"],         sizes:["S","M","L","XL","2XL"],             price:98.00,  stock:22, category:"بولو",    image:"https://picsum.photos/seed/lac1/400/500",   desc:"البولو الأيقوني منذ 1933. قطن بيكيه، طوق ضلعي." },
+    { id:5,  code:"LAC-2002", name:"Lacoste جاكيت رياضي",             brand:"LACOSTE", color:"زيتي",      colors:["زيتي","أبيض"],                sizes:["S","M","L","XL"],                   price:145.00, stock:9,  category:"جاكيت",  image:"https://picsum.photos/seed/lac2/400/500",   desc:"جاكيت تراك من قماش مطاطي تقني بخيوط حرارية." },
+    { id:6,  code:"LAC-2003", name:"Lacoste جوجر سليم",               brand:"LACOSTE", color:"بيج",       colors:["بيج","أسود"],                 sizes:["S","M","L","XL","2XL"],             price:89.00,  stock:0,  category:"بنطلون", image:"https://picsum.photos/seed/lac3/400/500",   desc:"جوجر فليس مع شعار مطرز وفتحة ضيقة." },
+    { id:7,  code:"TOM-3001", name:"Tommy Hilfiger قميص أكسفورد",     brand:"TOMMY",   color:"أزرق ملكي", colors:["أزرق ملكي","أبيض","بيج"],    sizes:["S","M","L","XL","2XL","3XL"],       price:79.00,  stock:15, category:"قميص",   image:"https://picsum.photos/seed/tom1/400/500",   desc:"قميص أكسفورد كلاسيك من قطن ناعم. ياقة بأزرار." },
+    { id:8,  code:"TOM-3002", name:"Tommy Hilfiger هودي",              brand:"TOMMY",   color:"بردو",      colors:["بردو","كحلي"],                sizes:["M","L","XL","2XL","3XL","4XL"],     price:99.00,  stock:11, category:"هودي",   image:"https://picsum.photos/seed/tom2/400/500",   desc:"هودي فرنش تيري مع شعار مطرز وجيب كانغارو." },
+    { id:9,  code:"TOM-3003", name:"Tommy تيشيرت أساسي",              brand:"TOMMY",   color:"أبيض",      colors:["أبيض","أسود"],                sizes:["XS","S","M","L","XL"],              price:45.00,  stock:30, category:"تيشيرت", image:"https://picsum.photos/seed/tom3/400/500",   desc:"تيشيرت 100% قطن عضوي. قصة واسعة، رقبة ضلعية." },
+    { id:10, code:"CAL-4001", name:"Calvin Klein بوكسر مودرن",        brand:"CALVIN",  color:"أسود",      colors:["أسود","بيج","أبيض"],          sizes:["S","M","L","XL","2XL"],             price:35.00,  stock:40, category:"أساسيات",image:"https://picsum.photos/seed/ck1/400/500",    desc:"بوكسر من ميكروفايبر بحزام شعار. يمتص الرطوبة." },
+    { id:11, code:"CAL-4002", name:"CK جينز سليم",                     brand:"CALVIN",  color:"أزرق ملكي", colors:["أزرق ملكي","أسود فحمي"],    sizes:["28","30","32","34","36","38"],       price:129.00, stock:7,  category:"بنطلون", image:"https://picsum.photos/seed/ck2/400/500",    desc:"جينز دنيم ياباني مطاطي سليم ستريت." },
+    { id:12, code:"CAL-4003", name:"CK بولو بيما كوتون",               brand:"CALVIN",  color:"كحلي",      colors:["كحلي","أبيض"],                sizes:["S","M","L","XL","2XL","3XL"],       price:69.00,  stock:13, category:"بولو",    image:"https://picsum.photos/seed/ck3/400/500",    desc:"بولو من قطن بيما فاخر مع أزرار متناسقة." },
+    { id:13, code:"POL-5001", name:"Polo Ralph Lauren تيشيرت كلاسيك", brand:"POLO",    color:"أبيض",      colors:["أبيض","كحلي","بردو"],         sizes:["S","M","L","XL","2XL","3XL","4XL"], price:59.00,  stock:25, category:"تيشيرت", image:"https://picsum.photos/seed/polo1/400/500",  desc:"تيشيرت جيرسي ناعم مع شعار الحصان المطرز." },
+    { id:14, code:"POL-5002", name:"Polo Bear هودي بوللوفر",           brand:"POLO",    color:"بيج",       colors:["بيج","كحلي"],                 sizes:["M","L","XL","2XL","3XL"],           price:185.00, stock:3,  category:"هودي",   image:"https://picsum.photos/seed/polo2/400/500",  desc:"هودي فليس بطباعة الدب التزلج الأيقونية." },
+    { id:15, code:"POL-5003", name:"Big Pony قميص راغبي",              brand:"POLO",    color:"بردو",      colors:["بردو","أزرق ملكي"],           sizes:["M","L","XL","2XL","3XL","4XL"],     price:125.00, stock:8,  category:"قميص",   image:"https://picsum.photos/seed/polo3/400/500",  desc:"قميص راغبي ثقيل مع خطوط متباينة." },
+    { id:16, code:"BOS-1004", name:"Boss شورت سباحة",                   brand:"BOSS",    color:"أزرق ملكي", colors:["أزرق ملكي","أسود"],          sizes:["S","M","L","XL","2XL"],             price:79.00,  stock:16, category:"أساسيات",image:"https://picsum.photos/seed/boss4/400/500",  desc:"شورت سباحة سريع الجفاف مع حبل وجيب بسحاب." },
+    { id:17, code:"LAC-2004", name:"Lacoste سويتشيرت فليس",            brand:"LACOSTE", color:"كحلي",      colors:["كحلي","بيج"],                 sizes:["S","M","L","XL","2XL","3XL"],       price:110.00, stock:12, category:"هودي",   image:"https://picsum.photos/seed/lac4/400/500",   desc:"كرونك فليس ثقيل مع شارة التمساح المنسوجة." },
+    { id:18, code:"TOM-3004", name:"Tommy Hilfiger شينو",              brand:"TOMMY",   color:"بني",       colors:["بني","كحلي"],                 sizes:["30","32","34","36","38","40"],       price:89.00,  stock:10, category:"بنطلون", image:"https://picsum.photos/seed/tom4/400/500",   desc:"شينو مصبوغ بالجارمنت بقصة سليم مُحكمة." },
+    { id:19, code:"CAL-4004", name:"CK جاكيت مبطن بسحاب",             brand:"CALVIN",  color:"أسود فحمي", colors:["أسود فحمي"],                  sizes:["M","L","XL","2XL","3XL","4XL"],     price:179.00, stock:5,  category:"جاكيت",  image:"https://picsum.photos/seed/ck4/400/500",    desc:"جاكيت بومبر بتطريز معيني. غطاء خارجي غير لامع." },
+    { id:20, code:"POL-5004", name:"Polo جوجر دبل نيت",                brand:"POLO",    color:"بيج",       colors:["بيج","أسود فحمي"],            sizes:["S","M","L","XL","2XL","3XL"],       price:98.00,  stock:19, category:"بنطلون", image:"https://picsum.photos/seed/polo4/400/500",  desc:"جوجر من قماش دبل نيت. خصر مطاطي وجيوب بسحاب." },
+  ];
+
+  const SIZE_CHART = [
+    { size:'XS',  minW:45,  maxW:58,  minH:155, maxH:168, chest:'80–84',  waist:'62–66', confidence:90 },
+    { size:'S',   minW:55,  maxW:68,  minH:160, maxH:172, chest:'86–90',  waist:'68–72', confidence:90 },
+    { size:'M',   minW:65,  maxW:78,  minH:165, maxH:178, chest:'92–96',  waist:'74–78', confidence:92 },
+    { size:'L',   minW:75,  maxW:90,  minH:170, maxH:182, chest:'98–102', waist:'80–84', confidence:92 },
+    { size:'XL',  minW:87,  maxW:102, minH:173, maxH:185, chest:'104–108',waist:'86–90', confidence:90 },
+    { size:'2XL', minW:99,  maxW:115, minH:175, maxH:188, chest:'110–116',waist:'92–98', confidence:88 },
+    { size:'3XL', minW:112, maxW:128, minH:177, maxH:192, chest:'118–124',waist:'100–106',confidence:86 },
+    { size:'4XL', minW:125, maxW:142, minH:178, maxH:196, chest:'126–132',waist:'108–116',confidence:84 },
+    { size:'5XL', minW:139, maxW:158, minH:180, maxH:200, chest:'134–140',waist:'118–126',confidence:80 },
+    { size:'6XL', minW:155, maxW:200, minH:182, maxH:210, chest:'142–150',waist:'128–138',confidence:75 },
+  ];
+
+  // الألوان الرسمية لـ SIZEME — مستخرجة من لوحة الألوان
+  const COLOR_HEX = {
+    'زيتي':      '#3A5228',   // أخضر زيتوني داكن
+    'بيج':       '#9E9080',   // بيج / رمادي دافئ
+    'أسود فحمي': '#2D2D2D',   // أسود فحمي
+    'بردو':      '#6E1E1E',   // خمري / بردو
+    'بني':       '#5A2A18',   // بني داكن
+    'أزرق ملكي': '#2D50C8',   // أزرق ملكي كوبالت
+    'كحلي':      '#1A2850',   // كحلي داكن
+    'أبيض':      '#F5F0E8',   // أبيض / كريمي
+    'أسود':      '#141414',   // أسود نقي
+  };
+
+  // الألوان الثابتة بالترتيب المرئي من الصورة
+  const FIXED_COLORS = ['زيتي','بيج','أسود فحمي','بردو','بني','أزرق ملكي','كحلي','أبيض','أسود'];
+
+  let activeSearch = '', activeBrands = new Set(), activeColors = new Set(), fittaVisible = false;
+  const brands = [...new Set(PRODUCTS.map(p => p.brand))].sort();
+  const colors = FIXED_COLORS; // دائماً ثابت بغض النظر عن المنتجات
+
+  document.addEventListener('DOMContentLoaded', () => {
+    buildBrandFilters(); buildColorFilters(); buildSizeChart(); renderGrid(PRODUCTS);
+    document.getElementById('total-count').textContent = PRODUCTS.length;
+    document.getElementById('last-sync-label').textContent = 'آخر مزامنة: ' + new Date().toLocaleString('ar-SA');
+    document.getElementById('search-input').addEventListener('input', onSearch);
+    document.getElementById('modal-overlay').addEventListener('click', e => {
+      if (e.target === document.getElementById('modal-overlay')) closeModal();
+    });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+  });
+
+  function buildBrandFilters() {
+    const wrap = document.getElementById('brand-filters');
+    brands.forEach(b => {
+      const btn = document.createElement('button');
+      btn.className = 'filter-chip brand-chip';
+      btn.textContent = b;
+      btn.onclick = () => { activeBrands.has(b)?activeBrands.delete(b):activeBrands.add(b); btn.classList.toggle('active'); applyFilters(); };
+      wrap.appendChild(btn);
+    });
+  }
+
+  function buildColorFilters() {
+    const wrap = document.getElementById('color-filters');
+    colors.forEach(c => {
+      const container = document.createElement('div');
+      container.className = 'flex flex-col items-center gap-1 cursor-pointer';
+
+      const btn = document.createElement('button');
+      btn.className = 'color-swatch';
+      btn.title = c;
+      btn.style.background = COLOR_HEX[c] || '#ccc';
+      // الألوان الفاتحة تحتاج حدود مرئية
+      if (c === 'أبيض' || c === 'بيج') {
+        btn.style.border = '2px solid #D0C8BC';
+      }
+      btn.onclick = () => {
+        activeColors.has(c) ? activeColors.delete(c) : activeColors.add(c);
+        btn.classList.toggle('active');
+        // ring ذهبي للألوان الفاتحة
+        if (c === 'أبيض' || c === 'بيج') btn.classList.toggle('gold-ring');
+        label.classList.toggle('text-cognac');
+        label.classList.toggle('text-muted');
+        applyFilters();
+      };
+
+      const label = document.createElement('span');
+      label.textContent = c;
+      label.className = 'text-muted transition-colors';
+      label.style.cssText = 'font-size:9px; font-weight:700; white-space:nowrap; font-family:Cairo,sans-serif;';
+
+      container.appendChild(btn);
+      container.appendChild(label);
+      wrap.appendChild(container);
+    });
+  }
+
+  function buildSizeChart() {
+    const tbody = document.getElementById('size-chart-body');
+    SIZE_CHART.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.className = 'border-b border-border-soft';
+      tr.id = 'chart-row-' + r.size;
+      tr.innerHTML = `<td class="py-2 font-black text-ink">${r.size}</td><td class="py-2 text-center">${r.minW}–${r.maxW}</td><td class="py-2 text-left">${r.minH}–${r.maxH}</td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function clearAllFilters() {
+    activeBrands.clear(); activeColors.clear();
+    document.querySelectorAll('.filter-chip,.color-swatch').forEach(el => el.classList.remove('active','gold-ring'));
+    document.getElementById('clear-filters-btn').classList.add('hidden');
+    document.getElementById('filter-summary').classList.add('hidden');
+    applyFilters();
+  }
+
+  function applyFilters() {
+    document.getElementById('clear-filters-btn').classList.toggle('hidden', activeBrands.size===0 && activeColors.size===0);
+    const tags=[...activeBrands,...activeColors];
+    const sumEl = document.getElementById('filter-summary');
+    if (tags.length===0) { sumEl.classList.add('hidden'); } else {
+      sumEl.classList.remove('hidden');
+      document.getElementById('filter-tags').innerHTML = tags.map(t=>`<span class="text-xs font-bold bg-ink text-cream px-2 py-1">${t}</span>`).join('');
+    }
+    renderFiltered();
+  }
+
+  function onSearch(e) {
+    activeSearch = e.target.value.trim().toUpperCase();
+    document.getElementById('clear-btn').classList.toggle('hidden', !activeSearch);
+    renderFiltered();
+  }
+
+  function clearSearch() {
+    activeSearch = '';
+    document.getElementById('search-input').value = '';
+    document.getElementById('clear-btn').classList.add('hidden');
+    document.getElementById('exact-match-wrapper').classList.add('hidden');
+    renderFiltered();
+  }
+
+  function getFiltered() {
+    return PRODUCTS.filter(p => {
+      const ms = !activeSearch || p.code.toUpperCase().includes(activeSearch) || p.name.includes(activeSearch) || p.brand.toUpperCase().includes(activeSearch);
+      const mb = activeBrands.size===0 || activeBrands.has(p.brand);
+      const mc = activeColors.size===0 || activeColors.has(p.color);
+      return ms && mb && mc;
+    });
+  }
+
+  function renderFiltered() {
+    const results = getFiltered();
+    renderGrid(results);
+    const exact = PRODUCTS.find(p => p.code.toUpperCase() === activeSearch);
+    if (exact) showExactMatch(exact);
+    else document.getElementById('exact-match-wrapper').classList.add('hidden');
+    document.getElementById('result-count').innerHTML = `<span>${results.length}</span> من أصل ${PRODUCTS.length} منتج`;
+  }
+
+  function showExactMatch(p) {
+    document.getElementById('exact-match-wrapper').classList.remove('hidden');
+    document.getElementById('em-img').src = p.image;
+    document.getElementById('em-brand').textContent = p.brand;
+    document.getElementById('em-code').textContent = p.code;
+    document.getElementById('em-name').textContent = p.name;
+    document.getElementById('em-desc').textContent = p.desc;
+    document.getElementById('em-price').textContent = p.price.toFixed(2);
+    const b = document.getElementById('em-stock-badge');
+    b.textContent = p.stock > 0 ? `${p.stock} متوفر` : 'نفد المخزون';
+    b.className = p.stock > 0 ? 'text-xs font-bold px-2 py-0.5 bg-green-100 text-green-800' : 'text-xs font-bold px-2 py-0.5 bg-red-100 text-red-800';
+    document.getElementById('em-sizes').innerHTML = p.sizes.map(s=>`<span class="text-xs font-bold border border-border-soft px-2 py-1">${s}</span>`).join('');
+    document.getElementById('exact-match-wrapper').scrollIntoView({ behavior:'smooth', block:'nearest' });
+  }
+
+  function renderGrid(products) {
+    const grid = document.getElementById('product-grid');
+    const empty = document.getElementById('empty-state');
+    if (products.length === 0) { grid.innerHTML=''; empty.classList.remove('hidden'); return; }
+    empty.classList.add('hidden');
+    grid.innerHTML = products.map((p, i) => `
+      <div class="product-card card-enter cursor-pointer" style="animation-delay:${Math.min(i*0.04,0.3)}s" onclick="openModal(${p.id})">
+        <div class="relative overflow-hidden bg-cream" style="padding-bottom:125%">
+          <img src="${p.image}" alt="${p.name}" class="absolute inset-0 w-full h-full object-cover transition-transform duration-500 hover:scale-105" loading="lazy"
+            onerror="this.src='https://placehold.co/400x500/FAF7F2/8A8275?text=${encodeURIComponent(p.brand)}'" />
+          ${p.stock===0?`<div class="absolute inset-0 bg-black/50 flex items-center justify-center"><span class="text-white text-xs font-black bg-black/70 px-3 py-1">نفد المخزون</span></div>`:''}
+          <div class="absolute top-2 right-2">
+            <span class="text-xs font-black text-cognac bg-white px-2 py-0.5 shadow-sm">${p.brand}</span>
+          </div>
+          ${p.stock>0&&p.stock<=5?`<div class="absolute top-2 left-2"><span class="text-xs font-bold bg-cognac text-white px-2 py-0.5">قليل</span></div>`:''}
+        </div>
+        <div class="p-3 sm:p-4 text-right">
+          <p class="text-xs text-muted font-mono mb-1">${p.code}</p>
+          <h3 class="text-sm font-semibold leading-snug text-ink mb-2 line-clamp-2">${p.name}</h3>
+          <div class="flex items-center justify-between">
+            <div class="flex gap-1">${p.colors.slice(0,3).map(c=>`<span class="w-3 h-3 rounded-full border border-border-soft" style="background:${COLOR_HEX[c]||'#ccc'}" title="${c}"></span>`).join('')}</div>
+            <span class="font-black text-ink">$${p.price.toFixed(0)}</span>
+          </div>
+        </div>
+      </div>`).join('');
+  }
+
+  function openModal(id) {
+    const p = PRODUCTS.find(x => x.id===id); if (!p) return;
+    document.getElementById('modal-code').textContent = p.code;
+    document.getElementById('modal-img').src = p.image;
+    document.getElementById('modal-brand').textContent = p.brand;
+    document.getElementById('modal-name').textContent = p.name;
+    document.getElementById('modal-desc').textContent = p.desc;
+    document.getElementById('modal-price').textContent = `$${p.price.toFixed(2)}`;
+    document.getElementById('modal-category').textContent = p.category;
+    document.getElementById('modal-sizes').innerHTML = p.sizes.map(s=>`<span class="text-xs font-bold border border-border-soft px-3 py-1.5 hover:bg-ink hover:text-cream cursor-default transition-colors">${s}</span>`).join('');
+    document.getElementById('modal-colors').innerHTML = p.colors.map(c=>`<span class="w-6 h-6 rounded-full border border-border-soft" style="background:${COLOR_HEX[c]||'#ccc'}" title="${c}"></span>`).join('');
+    document.getElementById('modal-stock').innerHTML = p.stock>0 ? `<span class="text-green-700 font-bold">● ${p.stock} متوفر في المخزون</span>` : `<span class="text-red-600 font-bold">● نفد المخزون</span>`;
+    document.getElementById('modal-overlay').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeModal() {
+    document.getElementById('modal-overlay').classList.add('hidden');
+    document.body.style.overflow = '';
+  }
+
+  function toggleFitta() {
+    fittaVisible = !fittaVisible;
+    const sec = document.getElementById('fitta-section');
+    sec.classList.toggle('hidden', !fittaVisible);
+    if (fittaVisible) sec.scrollIntoView({ behavior:'smooth', block:'start' });
+  }
+
+  function calculateSize() {
+    const w = parseFloat(document.getElementById('fitta-weight').value);
+    const h = parseFloat(document.getElementById('fitta-height').value);
+    const sizeEl=document.getElementById('fitta-size'), labelEl=document.getElementById('fitta-label'),
+          descEl=document.getElementById('fitta-desc'), barWrap=document.getElementById('fitta-bar-wrap'),
+          barFill=document.getElementById('fitta-bar-fill'), pctEl=document.getElementById('fitta-confidence-pct');
+
+    if (!w||!h||isNaN(w)||isNaN(h)) {
+      sizeEl.textContent='—'; labelEl.textContent='أدخل المقاسات'; descEl.textContent='';
+      barWrap.classList.add('hidden'); clearChartHighlight(); return;
+    }
+
+    let result = SIZE_CHART.find(r=>w>=r.minW&&w<=r.maxW&&h>=r.minH&&h<=r.maxH);
+    if (!result) result = SIZE_CHART.find(r=>w>=r.minW&&w<=r.maxW);
+    if (!result) {
+      let best=null,bestDist=Infinity;
+      SIZE_CHART.forEach(r=>{const d=Math.abs(w-(r.minW+r.maxW)/2);if(d<bestDist){bestDist=d;best=r;}});
+      result=best;
+    }
+    if (!result) { sizeEl.textContent='غير متاح'; labelEl.textContent='خارج النطاق'; descEl.textContent='يُرجى مراجعة الجدول.'; return; }
+
+    const isTall=h>188, isBig=w>result.maxW*0.92;
+    let sizeLabel=result.size, note='';
+    if (isTall&&result.size!=='XS'&&result.size!=='S') { sizeLabel+='T'; note='قياس طويل — طول إضافي في الكم والجسم.'; }
+    else if (isBig) { note='يُنصح بأخذ مقاس أكبر لراحة أفضل.'; }
+    else { note=`الصدر ${result.chest} سم · الخصر ${result.waist} سم`; }
+
+    const wMid=(result.minW+result.maxW)/2, hMid=(result.minH+result.maxH)/2;
+    const wScore=1-Math.min(Math.abs(w-wMid)/((result.maxW-result.minW)/2),1);
+    const hScore=1-Math.min(Math.abs(h-hMid)/((result.maxH-result.minH)/2),1);
+    let confidence=Math.round((wScore*0.65+hScore*0.35)*result.confidence);
+    confidence=Math.max(50,Math.min(confidence,98));
+
+    sizeEl.textContent=sizeLabel;
+    labelEl.textContent=isTall?'المقاس الطويل المقترح':'المقاس المقترح';
+    descEl.textContent=note;
+    barWrap.classList.remove('hidden');
+    pctEl.textContent=`${confidence}%`;
+    barFill.style.width=`${confidence}%`;
+    clearChartHighlight();
+    const row=document.getElementById('chart-row-'+result.size);
+    if(row){row.style.background='rgba(184,118,42,0.12)';row.style.fontWeight='700';row.style.color='#B8762A';}
+  }
+
+  function clearChartHighlight() {
+    document.querySelectorAll('#size-chart-body tr').forEach(r=>{r.style.background='';r.style.fontWeight='';r.style.color='';});
+  }
+
+  function updateNetStatus() {
+    const online=navigator.onLine;
+    document.getElementById('net-dot').className=`w-2 h-2 rounded-full transition-colors ${online?'bg-green-500':'bg-amber-400'}`;
+    document.getElementById('net-label').textContent=online?'متصل':'غير متصل';
+    document.getElementById('offline-banner').classList.toggle('hidden',online);
+    document.body.style.paddingTop=online?'':'36px';
+  }
+  window.addEventListener('online',updateNetStatus);
+  window.addEventListener('offline',updateNetStatus);
+  updateNetStatus();
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js')
+      .then(r=>console.log('[SW] مُسجَّل:',r.scope))
+      .catch(e=>console.warn('[SW] فشل:',e));
+  }
+  </script>
+</body>
+</html>
+    
